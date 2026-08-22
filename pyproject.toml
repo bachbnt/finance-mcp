@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "finhub-mcp"
+version = "0.1.0"
+description = "Local MCP server for Vietnam stocks, crypto, forex, gold, and alerts."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "mcp",
+  "vnstock>=4.0.0",
+  "ccxt",
+  "requests",
+  "python-dotenv",
+]
+
+[project.scripts]
+finhub-mcp-server = "server:main"
+finhub-alert-daemon = "alert_daemon:main"
+
+[tool.setuptools]
+packages = ["finhub_mcp", "finhub_mcp.tools"]
+py-modules = ["server", "alert_daemon"]

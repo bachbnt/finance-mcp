@@ -21,6 +21,7 @@ A local [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server f
 | Company & financials | Company profile, income statement, balance sheet, cash flow, ratios |
 | Crypto spot | Price ticker, intraday OHLCV, OHLCV history, top by volume, order book, recent trades |
 | Crypto futures | Funding rate and history, open interest |
+| Technical indicators | SMA, EMA, RSI, MACD, Bollinger Bands for crypto and Vietnam stocks |
 | Market extras | SJC gold price, Vietcombank forex rates |
 | Price alerts | Create, list, and delete alerts; optional Telegram notification daemon |
 
@@ -46,8 +47,8 @@ Add this server to your Claude Code MCP config:
 {
   "mcpServers": {
     "finance": {
-      "command": "/Users/bachbui/Desktop/source/finhub/.venv/bin/python",
-      "args": ["/Users/bachbui/Desktop/source/finhub/server.py"]
+      "command": "/Users/bachbui/Desktop/source/finhub-mcp/.venv/bin/python",
+      "args": ["/Users/bachbui/Desktop/source/finhub-mcp/server.py"]
     }
   }
 }
@@ -75,6 +76,67 @@ exchange="okx,binance"
 ```
 
 Responses include `source` or `exchange` plus `fallback_used` where applicable.
+
+Provider order and alert storage can be configured in `config.json`.
+
+## Response Format
+
+All MCP tools return a JSON string with a stable envelope:
+
+```json
+{
+  "ok": true,
+  "data": {}
+}
+```
+
+Errors use the same envelope:
+
+```json
+{
+  "ok": false,
+  "error": "message",
+  "meta": {
+    "error_type": "validation",
+    "retryable": false
+  }
+}
+```
+
+Provider fallback failures include structured metadata:
+
+```json
+{
+  "ok": false,
+  "error": "All providers failed (...)",
+  "meta": {
+    "error_type": "provider_failure",
+    "retryable": true,
+    "provider_errors": {
+      "binance": "timeout",
+      "okx": "symbol not found"
+    }
+  }
+}
+```
+
+## Configuration
+
+Runtime defaults live in `config.json`:
+
+```json
+{
+  "crypto_exchanges": ["binance", "okx", "bybit"],
+  "vn_quote_sources": ["VCI", "KBS", "MSN"],
+  "alert_store": "alerts.json",
+  "cache_ttl_seconds": {
+    "ticker": 10,
+    "history": 300
+  }
+}
+```
+
+Relative paths are resolved from the project root. Set `FINHUB_CONFIG=/path/to/config.json` to use another file.
 
 ## Tool Reference
 
@@ -114,6 +176,7 @@ Supported `period` values depend on the upstream source, commonly `year` and `qu
 | `get_top_crypto(limit=10, exchange="auto")` | Top USDT pairs by 24h quote volume |
 | `get_crypto_orderbook(symbol, depth=10, exchange="auto")` | Bid/ask depth and spread |
 | `get_crypto_trades(symbol, limit=20, exchange="auto")` | Recent public trades |
+| `get_crypto_indicators(symbol, timeframe="1d", limit=120, indicators="sma,ema,rsi,macd,bollinger", exchange="auto")` | Technical indicators from OHLCV |
 
 Symbols may be base assets like `BTC` or full pairs like `BTC/USDT`.
 
@@ -125,6 +188,15 @@ Common timeframes: `1m`, `5m`, `15m`, `1h`, `4h`, `1d`, `1w`.
 |---|---|
 | `get_crypto_funding_rate(symbol, exchange="auto", history_limit=8)` | Current funding rate plus recent history |
 | `get_crypto_open_interest(symbol, exchange="auto")` | Current perpetual futures open interest |
+
+### Technical Indicators
+
+| Tool | Description |
+|---|---|
+| `get_crypto_indicators(...)` | SMA20/50, EMA12/26, RSI14, MACD, Bollinger Bands |
+| `get_vn_stock_indicators(symbol, days=180, indicators="sma,ema,rsi,macd,bollinger", source="auto")` | Same indicators from Vietnam stock daily history |
+
+Use `indicators="rsi,sma"` to request a subset.
 
 ### Market Extras
 
@@ -151,6 +223,12 @@ The MCP server writes alerts to `alerts.json`. The daemon polls that file and se
 python alert_daemon.py
 ```
 
+If installed as a package, use:
+
+```bash
+finhub-alert-daemon
+```
+
 Telegram setup:
 
 1. Create a bot with [@BotFather](https://t.me/BotFather).
@@ -166,6 +244,41 @@ Telegram setup:
 |---|---|---|---|
 | `TELEGRAM_BOT_TOKEN` | No | empty | Telegram bot token for alert delivery |
 | `CHECK_INTERVAL` | No | `60` | Alert daemon polling interval in seconds |
+
+## Development
+
+The codebase is split by responsibility:
+
+| Path | Purpose |
+|---|---|
+| `server.py` | Thin MCP entrypoint and tool registration |
+| `finhub_mcp/providers.py` | Shared `vnstock` and `ccxt` adapters/helpers |
+| `finhub_mcp/alerts.py` | Atomic alert store, validation, and trigger updates |
+| `finhub_mcp/responses.py` | Standard MCP JSON response envelope |
+| `finhub_mcp/indicators.py` | Technical indicator calculations |
+| `finhub_mcp/config.py` | `config.json` loading and defaults |
+| `finhub_mcp/tools/` | MCP tool groups by domain |
+| `alert_daemon.py` | Background alert polling and Telegram delivery |
+
+Run syntax checks and unit tests:
+
+```bash
+.venv/bin/python -m py_compile server.py alert_daemon.py finhub_mcp/*.py finhub_mcp/tools/*.py
+.venv/bin/python -m unittest discover -s tests
+```
+
+Optional live provider smoke tests are skipped by default. Run them only when network access is available:
+
+```bash
+RUN_LIVE_TESTS=1 .venv/bin/python -m unittest discover -s tests
+```
+
+Install the package in editable mode to use console scripts:
+
+```bash
+.venv/bin/pip install -e .
+finhub-mcp-server
+```
 
 ## Data Sources
 

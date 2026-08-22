@@ -1,0 +1,22 @@
+{
+  "vn_quote_sources": ["VCI", "KBS", "MSN"],
+  "vn_intraday_sources": ["KBS", "VCI", "MSN"],
+  "vn_listing_sources": ["VCI", "KBS"],
+  "vn_stock_sources": ["VCI", "KBS"],
+  "crypto_exchanges": ["binance", "okx", "bybit", "kucoin", "gate", "mexc"],
+  "futures_default_types": {
+    "binance": "future",
+    "okx": "swap",
+    "bybit": "swap",
+    "kucoin": "swap",
+    "gate": "swap",
+    "mexc": "swap"
+  },
+  "alert_store": "alerts.json",
+  "cache_ttl_seconds": {
+    "ticker": 10,
+    "history": 300,
+    "market_overview": 60
+  }
+}
+
